@@ -1,0 +1,75 @@
+.setup-connection-card { padding: 20px; border: 1px solid var(--line); border-radius: 22px; background: var(--panel); }
+.setup-connection-card--online { border-color: rgba(113, 237, 189, 0.28); background: linear-gradient(145deg, rgba(25, 60, 46, 0.75), var(--panel)); }
+.setup-connection-card__top { display: flex; align-items: center; gap: 14px; }
+.setup-connection-card__top > div { min-width: 0; flex: 1; }
+.setup-connection-card h2 { overflow: hidden; margin: 4px 0; font-size: 19px; text-overflow: ellipsis; white-space: nowrap; }
+.setup-connection-card__top p:last-child { margin: 0; color: var(--muted); font-size: 11px; }
+.setup-wifi-icon { display: grid; flex: 0 0 auto; place-items: center; width: 48px; height: 48px; border-radius: 15px; background: rgba(113, 237, 189, 0.1); color: var(--accent); font-size: 25px; }
+.setup-connection-card__top > .connection-dot { flex: 0 0 auto; width: 10px; height: 10px; }
+.setup-error { display: flex; align-items: flex-start; gap: 8px; margin: 16px -4px -4px; padding: 12px; border-radius: 12px; background: rgba(255, 193, 105, 0.08); color: #f3c887; font-size: 11px; line-height: 1.45; }
+.setup-error ion-icon { flex: 0 0 auto; font-size: 17px; }
+
+.setup-section { margin-top: 28px; }
+.connection-steps { list-style: none; margin: 0; padding: 2px 0; }
+.connection-steps li { position: relative; display: flex; gap: 14px; padding-bottom: 22px; }
+.connection-steps li:not(:last-child)::after { position: absolute; top: 33px; bottom: 3px; left: 15px; width: 1px; background: var(--line); content: ''; }
+.connection-steps li > span { z-index: 1; display: grid; flex: 0 0 auto; place-items: center; width: 31px; height: 31px; border: 1px solid rgba(113, 237, 189, 0.24); border-radius: 50%; background: #10221c; color: var(--accent); font-size: 12px; font-weight: 700; }
+.connection-steps strong { display: block; margin: 4px 0 5px; font-size: 14px; }
+.connection-steps p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.connection-steps b { color: #c4d2cc; font-weight: 600; }
+
+.form-card { padding: 18px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel); }
+.field-label { display: block; margin: 0 0 8px 2px; color: var(--muted); font-size: 11px; font-weight: 600; }
+.form-card > p { margin: 9px 3px 16px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.form-card .ion-invalid { color: var(--ion-color-danger); }
+.home-wifi-status, .home-wifi-form { margin-top: 12px; }
+.home-wifi-password-label { margin-top: 14px; }
+.form-card > p.home-wifi-note { margin: 14px 3px 0; }
+
+.section-note { margin: 10px 2px 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+p.home-wifi-note:not(.form-card > p) { margin: 12px 3px 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+
+/* Trusted devices --------------------------------------------------- */
+.pairing-card { padding: 18px; border: 1px solid rgba(113, 237, 189, 0.24); border-radius: 20px; background: linear-gradient(150deg, rgba(25, 60, 46, 0.7), var(--panel)); }
+.pairing-card__head { display: flex; align-items: center; gap: 12px; }
+.pairing-card__title { flex: 1; min-width: 0; }
+.pairing-card__title h2 { overflow: hidden; margin: 3px 0 0; font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.pairing-dot { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pairing-pulse 1.6s ease-in-out infinite; }
+@keyframes pairing-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.pairing-countdown { flex: 0 0 auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
+.pairing-card__instructions { margin: 12px 0; color: #c4d2cc; font-size: 12px; line-height: 1.6; }
+.passkey { margin: 0 0 4px; font-size: 40px; font-weight: 700; letter-spacing: 0.22em; text-align: center; color: var(--accent); font-variant-numeric: tabular-nums; }
+
+.trust-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.trust-row { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--line); }
+.trust-row:last-child { border-bottom: none; }
+.trust-row .device-symbol { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 12px; background: rgba(113, 237, 189, 0.1); color: var(--accent); font-size: 18px; }
+.trust-row__info { flex: 1; min-width: 0; }
+.trust-row__info strong { display: block; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.trust-row__info span { display: block; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.trust-row__meta { flex: 0 1 auto; min-width: 80px; color: #c4d2cc; font-size: 10px; text-align: right; }
+.trust-row__meta.muted { color: var(--muted); }
+.trust-row ion-button { --padding-start: 6px; --padding-end: 6px; margin: 0; }
+
+.trust-empty { display: flex; align-items: flex-start; gap: 12px; margin-top: 12px; padding: 16px; border: 1px dashed var(--line); border-radius: 16px; }
+.trust-empty ion-icon { flex: 0 0 auto; color: var(--muted); font-size: 20px; }
+.trust-empty p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+
+/* Home position ----------------------------------------------------- */
+.home-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.home-actions--first { margin-top: 4px; }
+.home-actions ion-button { flex: 1 1 auto; min-width: 140px; margin: 0; --border-radius: 12px; }
+
+.privacy-card { display: flex; align-items: flex-start; gap: 14px; margin-top: 28px; padding: 19px; border: 1px solid rgba(113, 237, 189, 0.16); border-radius: 20px; background: rgba(31, 64, 51, 0.35); }
+.privacy-card > ion-icon { flex: 0 0 auto; margin-top: 2px; color: var(--accent); font-size: 22px; }
+.privacy-card h2 { margin: 0 0 7px; font-size: 16px; }
+.privacy-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+.help-accordion { margin-top: 20px; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; background: var(--panel); }
+.help-accordion ion-item { --background: var(--panel); --min-height: 58px; }
+.help-accordion ion-item ion-icon { color: var(--muted); font-size: 20px; }
+.help-accordion ion-label { font-size: 13px; font-weight: 600; }
+.accordion-content { padding: 3px 18px 12px 52px; background: var(--panel); }
+.accordion-content p { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.accordion-content b { color: #d7e4de; font-size: 11px; letter-spacing: 0.02em; }
+.app-version { margin: 26px 0 6px; color: #62776e; font-size: 11px; text-align: center; }

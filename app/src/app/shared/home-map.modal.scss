@@ -1,0 +1,39 @@
+.home-map {
+  position: absolute;
+  inset: 0;
+}
+
+.home-map__bar {
+  --min-height: 66px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  .home-map__readout {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    padding-right: 8px;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// Leaflet pin drawn in pure CSS: no marker PNGs to bundle, no broken image icons.
+:host ::ng-deep .home-pin-wrapper {
+  background: transparent;
+  border: none;
+}
+
+:host ::ng-deep .home-pin {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #ffffff;
+  border-radius: 50% 50% 50% 0;
+  background: var(--ion-color-primary, #71edbd);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  transform: rotate(-45deg);
+  transform-origin: 50% 50%;
+}

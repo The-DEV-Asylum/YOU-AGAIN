@@ -1,0 +1,151 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title class="brand-title">
+      <span class="brand-mark"><ion-icon name="shield-checkmark"></ion-icon></span>
+      AntiStalker
+    </ion-title>
+    <ion-buttons slot="end">
+      <ion-button class="connection-button" routerLink="/tabs/setup" [attr.aria-label]="monitor.connected() ? 'Connected. Open setup' : 'Disconnected. Open setup'">
+        <span class="connection-dot" [class.connection-dot--online]="monitor.connected()"></span>
+      </ion-button>
+      <ion-button aria-label="Refresh observations" [disabled]="monitor.refreshing()" (click)="refresh()">
+        <ion-icon name="refresh" [class.spinning]="monitor.refreshing()"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="refresh($any($event))">
+    <ion-refresher-content pulling-text="Pull to refresh" refreshing-spinner="crescent"></ion-refresher-content>
+  </ion-refresher>
+
+  <main class="page overview-page">
+    <section class="page-heading">
+      <div>
+        <p class="eyebrow">PASSIVE BLE MONITOR</p>
+        <h1>Your privacy, in view.</h1>
+      </div>
+      @if (monitor.connected()) {
+        <span class="live-pill"><i></i> LIVE</span>
+      }
+    </section>
+
+    @if (monitor.lastError()) {
+      <button type="button" class="connection-warning" routerLink="/tabs/setup">
+        <ion-icon name="warning"></ion-icon>
+        <span><strong>Device not reachable</strong><small>{{ monitor.lastError() }}</small></span>
+        <ion-icon name="chevron-forward"></ion-icon>
+      </button>
+    }
+
+    @if (monitor.status(); as status) {
+      <section class="monitor-hero" [class.monitor-hero--stopped]="!status.scanning">
+        <div class="radar" [class.radar--active]="status.scanning && monitor.connected()" aria-hidden="true">
+          <i></i><i></i><i></i>
+          <ion-icon name="shield-checkmark"></ion-icon>
+        </div>
+        <div class="monitor-hero__copy">
+          <p class="eyebrow">{{ status.ssid }}</p>
+          <h2>{{ status.scanning ? 'Monitoring nearby' : 'Scanner stopped' }}</h2>
+          <p>{{ status.scanning ? 'Passive Bluetooth Low Energy observations' : 'BLE observations are not being updated' }}</p>
+        </div>
+        <div class="hero-meta">
+          <span><ion-icon name="time"></ion-icon> Up {{ status.uptime | uptime }}</span>
+          <span><ion-icon name="radio"></ion-icon> {{ status.received }} packets</span>
+          <span [class.text-warning]="status.dropped > 0"><ion-icon name="cellular"></ion-icon> {{ status.dropped }} dropped</span>
+          @for (extra of heroExtras(); track extra.text) {
+            <span><ion-icon [name]="extra.icon"></ion-icon> {{ extra.text }}</span>
+          }
+        </div>
+      </section>
+
+      <section class="metric-grid" aria-label="Monitoring summary">
+        <div class="metric-card">
+          <span class="metric-icon metric-icon--green"><ion-icon name="radio"></ion-icon></span>
+          <strong>{{ activeTrackers() }}</strong>
+          <span>Tracking tags<em>{{ status.trackers.length }} kept</em></span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-icon metric-icon--blue"><ion-icon name="bluetooth"></ion-icon></span>
+          <strong>{{ activeDevices() }}</strong>
+          <span>Nearby BLE<em>{{ status.devices.length }} kept</em></span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-icon" [class.metric-icon--red]="status.alerts > 0"><ion-icon name="warning"></ion-icon></span>
+          <strong>{{ status.alerts }}</strong>
+          <span>Risk signals</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-icon metric-icon--violet"><ion-icon name="location"></ion-icon></span>
+          <strong>{{ status.locationEpoch }}</strong>
+          <span>Location epoch</span>
+        </div>
+      </section>
+
+      <section class="content-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">REVIEW</p><h2>Signals to review</h2></div>
+          <ion-button fill="clear" size="small" routerLink="/tabs/devices">View all <ion-icon slot="end" name="chevron-forward"></ion-icon></ion-button>
+        </div>
+
+        @if (attention().length) {
+          <div class="candidate-list">
+            @for (item of attention().slice(0, 3); track item.kind + item.candidate.id) {
+              <app-candidate-card [candidate]="item.candidate" [kind]="item.kind" (selected)="openCandidate(item.candidate, item.kind)"></app-candidate-card>
+            }
+          </div>
+        } @else {
+          <div class="all-clear-card">
+            <ion-icon name="checkmark-circle"></ion-icon>
+            <div><strong>No elevated signals to review</strong><p>No active persistent, following, or co-present observations are currently reported.</p></div>
+          </div>
+        }
+      </section>
+
+      <section class="location-card">
+        <span class="location-card__icon"><ion-icon name="footsteps"></ion-icon></span>
+        <div class="location-card__copy">
+          <p class="eyebrow">LOCATION CHECK</p>
+          <h2>Arrived somewhere new?</h2>
+          <p>Confirm only after a genuine change of location. Repeated co-presence across places can indicate a risk signal.</p>
+        </div>
+        <ion-button expand="block" size="large" [disabled]="!monitor.connected() || monitor.acting()" (click)="confirmLocation()">
+          <ion-icon slot="start" name="location"></ion-icon>
+          I am at a different location
+        </ion-button>
+        <small>
+          @if (gpsEpochs()) {
+            Phone GPS sharing is on: the device also confirms movement automatically after roughly 150 m.
+          } @else {
+            Do not use this for another room or trivial movement. Enable phone GPS sharing in Setup to automate it.
+          }
+        </small>
+        @if (lastFixText(); as fixText) {
+          <small class="location-card__fix">{{ fixText }}</small>
+        }
+        @if (homeNote(); as note) {
+          <small class="location-card__fix">{{ note }}</small>
+        }
+      </section>
+    } @else {
+      <section class="connect-empty">
+        <div class="connect-empty__visual"><ion-icon name="wifi"></ion-icon><i></i></div>
+        <p class="eyebrow">LOCAL DEVICE CONNECTION</p>
+        <h2>Connect to your AntiStalker</h2>
+        <p>Join the device’s private Wi-Fi hotspot in your phone settings, then return here. No Internet or cloud account is needed.</p>
+        <ion-button size="large" expand="block" [disabled]="monitor.refreshing()" (click)="refresh()">
+          @if (monitor.refreshing()) {<ion-spinner slot="start"></ion-spinner>}
+          <ion-icon slot="start" name="sync"></ion-icon>
+          Check connection
+        </ion-button>
+        <ion-button fill="clear" routerLink="/tabs/setup">View connection steps <ion-icon slot="end" name="chevron-forward"></ion-icon></ion-button>
+      </section>
+    }
+
+    <div class="safety-note">
+      <ion-icon name="information-circle"></ion-icon>
+      <p><strong>Risk signals, not accusations.</strong> Nearby devices do not prove stalking. Allow your own devices and never confront anyone based on BLE observations.</p>
+    </div>
+  </main>
+</ion-content>

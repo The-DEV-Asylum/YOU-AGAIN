@@ -1,0 +1,8 @@
+{
+  "name": "AntiStalkerCore",
+  "version": "0.1.0",
+  "description": "Platform-independent BLE tracker classification and unwanted-tracking heuristics",
+  "build": {
+    "includeDir": "src"
+  }
+}

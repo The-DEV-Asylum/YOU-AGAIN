@@ -1,0 +1,29 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>Home position</ion-title>
+    <ion-buttons slot="end">
+      <ion-button aria-label="Close the map without saving" (click)="dismiss()"><ion-icon name="close"></ion-icon></ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-no-padding">
+  <div #mapContainer class="home-map" aria-label="Drag the pin to set your home position"></div>
+</ion-content>
+
+<ion-footer class="ion-no-border">
+  <ion-toolbar class="home-map__bar">
+    <div class="home-map__readout">
+      @if (latitudePicked != null && longitudePicked != null) {
+        <span class="mono">{{ latitudePicked | number: '1.4-4' }}, {{ longitudePicked | number: '1.4-4' }}</span>
+      } @else {
+        <span class="muted">Tap the map or drag the pin to your home.</span>
+      }
+    </div>
+    <ion-button fill="clear" (click)="dismiss()">Cancel</ion-button>
+    <ion-button strong [disabled]="!placed" (click)="save()">
+      <ion-icon slot="start" name="checkmark"></ion-icon>
+      Save home
+    </ion-button>
+  </ion-toolbar>
+</ion-footer>

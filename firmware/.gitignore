@@ -1,0 +1,10 @@
+# PlatformIO build output. Big, regenerable, nobody wants it in git.
+.pio/
+
+# Local toolchains (if you installed PlatformIO in a venv next to the code)
+.venv/
+.platformio-core/
+
+# Editor junk
+.vscode/
+.idea/

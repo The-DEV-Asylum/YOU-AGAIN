@@ -1,0 +1,289 @@
+# ===========================================================================
+#  AntiStalker pipeline: test -> build -> tag -> release
+#
+#      firmware-tests ---+                 +--> firmware-bin ---+
+#                        +--(both green)---+--> android-apk  ---+--> release
+#      app-tests --------+                 +--> ios-ipa  -------+   (vX.Y.Z tag)
+#
+#  Pull requests: only the unit tests run. No builds, no tags.
+#  Push to main / manual run: tests, then all three builds, then a new
+#  semver tag and a GitHub Release with the .bin, .apk and .ipa attached.
+#  If ANY test fails, nothing gets built. If ANY build fails, nothing
+#  gets tagged. Half a release is worse than no release.
+#
+#  Versioning:
+#    - no v* tag yet        -> first release is v0.5.0 (the firmware version)
+#    - otherwise            -> latest vX.Y.Z bumped by the "bump" input
+#                              (manual runs pick it; pushes to main = patch)
+# ===========================================================================
+name: Release pipeline
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Which part of the version to bump'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+
+permissions:
+  contents: read
+
+# Two pushes in a row must not both try to create the same tag.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FIRST_VERSION: 0.5.0
+
+jobs:
+  # -------------------------------------------------------------------------
+  #  Stage 1: unit tests. Everything else waits for these.
+  # -------------------------------------------------------------------------
+  firmware-tests:
+    name: Firmware unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: firmware
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+      - name: Native unit tests (no board needed)
+        run: pio test -e native
+
+  app-tests:
+    name: App unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Vitest
+        run: npm run test:ci
+
+  # -------------------------------------------------------------------------
+  #  Stage 2: builds. Only on main / manual, only if all tests passed.
+  # -------------------------------------------------------------------------
+  firmware-bin:
+    name: Firmware .bin
+    needs: [firmware-tests, app-tests]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: firmware
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+      - name: Build ESP32-S3 N16R8 firmware
+        run: pio run -e esp32s3_n16r8
+      - name: Merge into one flashable image
+        run: |
+          set -euo pipefail
+          B=.pio/build/esp32s3_n16r8
+          PKG="$HOME/.platformio/packages"
+          OUT="$GITHUB_WORKSPACE/dist"
+          mkdir -p "$OUT"
+          cp "$B/bootloader.bin" "$B/partitions.bin" "$B/firmware.bin" "$OUT/"
+          cp "$PKG/framework-arduinoespressif32/tools/partitions/boot_app0.bin" "$OUT/"
+          # Default ESP32-S3 Arduino offsets. Flash mode/size are kept exactly
+          # as the build wrote them into the bootloader header.
+          python "$PKG/tool-esptoolpy/esptool.py" --chip esp32s3 merge_bin \
+            -o "$OUT/antistalker-firmware-merged.bin" \
+            0x0     "$OUT/bootloader.bin" \
+            0x8000  "$OUT/partitions.bin" \
+            0xe000  "$OUT/boot_app0.bin" \
+            0x10000 "$OUT/firmware.bin"
+          ls -la "$OUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: antistalker-firmware
+          path: dist/*.bin
+          if-no-files-found: error
+
+  android-apk:
+    name: Android .apk
+    needs: [firmware-tests, app-tests]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - run: npm ci
+      - name: Build web assets and sync Android
+        run: |
+          npm run build
+          npx cap sync android
+      # Debug-signed on purpose: a release APK needs YOUR keystore, and that
+      # does not belong in a public repo. Debug APKs sideload just fine.
+      - name: Build debug APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/dist/AntiStalker-debug.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: antistalker-android
+          path: dist/AntiStalker-debug.apk
+          if-no-files-found: error
+
+  ios-ipa:
+    name: iOS .ipa (unsigned)
+    needs: [firmware-tests, app-tests]
+    if: github.event_name != 'pull_request'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Build web assets and sync iOS
+        run: |
+          npm run build
+          npx cap sync ios
+      # No Apple credentials here. Sign the IPA yourself with Sideloadly or
+      # AltStore. Free signing expires after 7 days, because Apple.
+      - name: Build and package an unsigned IPA
+        env:
+          DERIVED_DATA: ${{ runner.temp }}/AntiStalkerDerivedData
+          PACKAGE_DIR: ${{ runner.temp }}/AntiStalkerIPA
+          OUTPUT_DIR: ${{ github.workspace }}/dist
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -target App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$DERIVED_DATA" \
+            ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            clean build
+          # An IPA is just a zip with a Payload/ folder. Really. That's it.
+          APP_PATH="$DERIVED_DATA/Build/Products/Release-iphoneos/App.app"
+          test -d "$APP_PATH"
+          mkdir -p "$PACKAGE_DIR/Payload" "$OUTPUT_DIR"
+          cp -R "$APP_PATH" "$PACKAGE_DIR/Payload/"
+          (cd "$PACKAGE_DIR" && zip -qry "$OUTPUT_DIR/AntiStalker-unsigned.ipa" Payload)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: antistalker-ios
+          path: dist/AntiStalker-unsigned.ipa
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
+  #  Stage 3: semver tag + GitHub Release. Only if all three builds passed.
+  # -------------------------------------------------------------------------
+  release:
+    name: Tag and release
+    needs: [firmware-bin, android-apk, ios-ipa]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # we need every tag to find the latest version
+
+      - name: Compute next version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump || 'patch' }}
+        run: |
+          set -euo pipefail
+          LATEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          if [ -z "$LATEST" ]; then
+            NEXT="v$FIRST_VERSION"
+          else
+            IFS=. read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
+            PATCH=${PATCH%%[-+]*}   # ignore -rc / +build suffixes
+            case "$BUMP" in
+              major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+              minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+              *)     PATCH=$((PATCH + 1)) ;;
+            esac
+            NEXT="v$MAJOR.$MINOR.$PATCH"
+          fi
+          if git rev-parse -q --verify "refs/tags/$NEXT" >/dev/null; then
+            echo "::error::Tag $NEXT already exists. Refusing to overwrite history."
+            exit 1
+          fi
+          echo "Latest: ${LATEST:-none}  ->  next: $NEXT ($BUMP)"
+          echo "tag=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      # gh creates the tag on the exact commit that was tested and built.
+      - name: Create tag and GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ls -la dist
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "AntiStalker $TAG" \
+            --generate-notes \
+            dist/*.bin dist/AntiStalker-debug.apk dist/AntiStalker-unsigned.ipa

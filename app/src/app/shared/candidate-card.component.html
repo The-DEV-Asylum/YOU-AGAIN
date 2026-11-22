@@ -1,0 +1,45 @@
+<button type="button" class="candidate-card" (click)="selected.emit()" [attr.aria-label]="'View ' + candidate.type + ' ' + candidate.id">
+  <span class="candidate-card__top">
+    <span class="device-symbol" [class.device-symbol--tracker]="kind === 'tracker'">
+      <ion-icon [name]="kind === 'tracker' ? 'radio' : 'bluetooth'"></ion-icon>
+    </span>
+    <span class="candidate-card__identity">
+      <strong>{{ candidate.trustedName || candidate.type }}</strong>
+      <span class="mono muted">ID {{ candidate.id }}</span>
+    </span>
+    @if (candidate.trusted) {
+      <span class="trusted-chip"><ion-icon name="shield-checkmark"></ion-icon> TRUSTED</span>
+    }
+    <span class="state-badge state-badge--{{ stateClass }}">{{ state }}</span>
+  </span>
+
+  <span class="candidate-card__details" [style.grid-template-columns]="candidate.distanceM != null ? 'repeat(5, 1fr)' : null">
+    <span>
+      <small>Signal</small>
+      <strong>{{ candidate.rssi }} <em>dBm</em></strong>
+    </span>
+    @if (candidate.distanceM != null) {
+      <span>
+        <small>Distance</small>
+        <strong>≈ {{ candidate.distanceM | number: '1.0-0' }} <em>m</em></strong>
+      </span>
+    }
+    <span>
+      <small>Last seen</small>
+      <strong>{{ candidate.lastSeen | relativeTime }}</strong>
+    </span>
+    <span>
+      <small>Sightings</small>
+      <strong>{{ candidate.sightings }}</strong>
+    </span>
+    <span>
+      <small>Places</small>
+      <strong>{{ candidate.locations }}</strong>
+    </span>
+    <ion-icon class="candidate-card__chevron" name="chevron-forward"></ion-icon>
+  </span>
+
+  @if (candidate.allowed) {
+    <span class="allowed-note"><ion-icon name="checkmark-circle"></ion-icon> Allowed — alerts suppressed</span>
+  }
+</button>

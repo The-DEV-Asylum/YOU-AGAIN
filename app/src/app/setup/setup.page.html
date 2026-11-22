@@ -1,0 +1,295 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>Setup & settings</ion-title>
+    <ion-buttons slot="end">
+      <ion-button aria-label="Check device connection" [disabled]="monitor.refreshing()" (click)="refresh()"><ion-icon name="refresh" [class.spinning]="monitor.refreshing()"></ion-icon></ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="refresh($any($event))">
+    <ion-refresher-content pulling-text="Pull to refresh" refreshing-spinner="crescent"></ion-refresher-content>
+  </ion-refresher>
+
+  <main class="page setup-page">
+    <section class="page-heading page-heading--simple">
+      <div><p class="eyebrow">DIRECT & PRIVATE</p><h1>Device connection</h1><p>Your phone talks directly to the AntiStalker over its hotspot or your home Wi-Fi.</p></div>
+    </section>
+
+    <section class="setup-connection-card" [class.setup-connection-card--online]="monitor.connected()">
+      <div class="setup-connection-card__top">
+        <span class="setup-wifi-icon"><ion-icon name="wifi"></ion-icon></span>
+        <div><p class="eyebrow">{{ monitor.connected() ? 'CONNECTED' : 'LOCAL HOTSPOT' }}</p><h2>{{ monitor.status()?.ssid || 'AntiStalker-XXXX' }}</h2><p>{{ monitor.connected() ? 'Live data is available' : '192.168.4.1 · No Internet required' }}</p></div>
+        <i class="connection-dot" [class.connection-dot--online]="monitor.connected()"></i>
+      </div>
+      @if (monitor.lastError()) {
+        <div class="setup-error"><ion-icon name="warning"></ion-icon><span>{{ monitor.lastError() }}</span></div>
+      }
+    </section>
+
+    <section class="setup-section">
+      <div class="section-heading"><div><p class="eyebrow">FIRST-TIME SETUP</p><h2>Join the device hotspot</h2></div></div>
+      <ol class="connection-steps">
+        <li><span>1</span><div><strong>Power on AntiStalker</strong><p>Use the ESP32-S3 board and note the SSID and password printed over serial.</p></div></li>
+        <li><span>2</span><div><strong>Join its Wi-Fi network</strong><p>Open your phone’s Wi-Fi settings and select <b>AntiStalker-XXXX</b>. Enter the device’s unique password.</p></div></li>
+        <li><span>3</span><div><strong>Keep the local connection</strong><p>If Android or iOS says there is no Internet, choose <b>Keep connection</b> or <b>Use anyway</b>.</p></div></li>
+        <li><span>4</span><div><strong>Return and check</strong><p>Use the button below. The app communicates directly with the board.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="setup-section">
+      <div class="section-heading"><div><p class="eyebrow">CONNECTION</p><h2>Device address</h2></div></div>
+      <div class="form-card">
+        <label class="field-label" for="device-endpoint">HTTP address</label>
+        <ion-input id="device-endpoint" class="endpoint-input" [(ngModel)]="endpoint" (ngModelChange)="markDirty()" type="url" inputmode="url" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="http://192.168.4.1"></ion-input>
+        <p>Use the hotspot fallback address http://192.168.4.1, or leave the saved address alone: the app re-finds the device automatically when its address changes.</p>
+        <ion-button expand="block" (click)="connect()">@if (monitor.refreshing()) {<ion-spinner slot="start"></ion-spinner>}<ion-icon slot="start" name="sync"></ion-icon>Save & check connection</ion-button>
+        <ion-button expand="block" fill="outline" [disabled]="monitor.discovering() || monitor.refreshing()" (click)="findDevice()">
+          @if (monitor.discovering()) {<ion-spinner slot="start"></ion-spinner>}<ion-icon slot="start" name="search"></ion-icon>
+          Find the device automatically
+        </ion-button>
+        <p>The app probes the hotspot address, the device's mDNS name (<code>antistalker-XXXX.local</code>), and its last known home IP, then saves whichever answers.</p>
+        @if (endpoint !== defaultEndpoint) {
+          <ion-button expand="block" fill="clear" size="small" (click)="useDefaultAddress()">Use default address</ion-button>
+        }
+      </div>
+    </section>
+
+    @if (monitor.status(); as status) {
+      <section class="setup-section">
+        <div class="section-heading"><div><p class="eyebrow">OPTIONAL NETWORK</p><h2>Home Wi-Fi</h2></div></div>
+        <ion-list class="settings-list" lines="full">
+          <ion-item>
+            <ion-icon slot="start" name="home"></ion-icon>
+            <ion-label><strong>Allow home Wi-Fi</strong><p>Let the ESP32 use its saved home network</p></ion-label>
+            <ion-toggle slot="end" [checked]="homeWifiEnabled" [disabled]="!monitor.connected() || monitor.acting()" (ionChange)="setHomeWifiEnabled($any($event).detail.checked)" aria-label="Allow home Wi-Fi"></ion-toggle>
+          </ion-item>
+        </ion-list>
+        <dl class="property-list home-wifi-status">
+          <div><dt>Connection</dt><dd>{{ status.homeWifi.connected ? 'Connected' : status.homeWifi.enabled ? 'Not connected' : 'Disabled' }}</dd></div>
+          <div><dt>Home SSID</dt><dd>{{ status.homeWifi.ssid || 'Not configured' }}</dd></div>
+          <div><dt>Home IP</dt><dd>{{ status.homeWifi.ip || 'Not connected' }}</dd></div>
+        </dl>
+        <div class="form-card home-wifi-form">
+          <label class="field-label" for="home-wifi-ssid">Home network name (SSID)</label>
+          <ion-input id="home-wifi-ssid" class="endpoint-input" [(ngModel)]="homeWifiSsid" (ngModelChange)="markHomeWifiDirty()" [disabled]="!monitor.connected() || monitor.acting()" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="Your home Wi-Fi"></ion-input>
+          <label class="field-label home-wifi-password-label" for="home-wifi-password">Password</label>
+          <ion-input id="home-wifi-password" class="endpoint-input" [(ngModel)]="homeWifiPassword" [disabled]="!monitor.connected() || monitor.acting()" type="password" autocapitalize="off" autocomplete="new-password" spellcheck="false" placeholder="Leave empty for an open network"></ion-input>
+          <p>Credentials are sent directly to and saved only on the ESP32, not in this app. Toggle-only changes retain its saved credentials.</p>
+          <ion-button expand="block" [disabled]="!monitor.connected() || monitor.acting()" (click)="saveHomeWifi()">@if (monitor.acting()) {<ion-spinner slot="start"></ion-spinner>}<ion-icon slot="start" name="save"></ion-icon>Save home network</ion-button>
+          <p class="home-wifi-note">The hotspot is fallback-only: it stays on during home connection attempts and turns off when home Wi-Fi connects. It automatically restarts if home Wi-Fi is unavailable, lost, or disabled.</p>
+          <p class="home-wifi-note">Switching can drop this app’s connection. The app now re-finds the device automatically: join the same Wi-Fi and it will connect via the ESP32's mDNS name or its last known home IP. If that fails, rejoin AntiStalker-XXXX and use http://192.168.4.1.</p>
+        </div>
+      </section>
+    }
+
+    <section class="setup-section">
+      <div class="section-heading"><div><p class="eyebrow">OPTIONAL · PHONE GPS</p><h2>Automatic location epochs</h2></div></div>
+      <ion-list class="settings-list" lines="full">
+        <ion-item>
+          <ion-icon slot="start" name="location"></ion-icon>
+          <ion-label><strong>Share this phone’s GPS</strong><p>Let the ESP32 start a new location epoch itself once you genuinely move</p></ion-label>
+          <ion-toggle slot="end" [checked]="monitor.locationSharing()" (ionChange)="setLocationSharing($any($event).detail.checked)" aria-label="Share this phone's GPS"></ion-toggle>
+        </ion-item>
+      </ion-list>
+      @if (monitor.locationError(); as locationError) {
+        <div class="setup-error"><ion-icon name="warning"></ion-icon><span>{{ locationError }}</span></div>
+      }
+      @if (monitor.status()?.phoneLocation; as phoneLocation) {
+        <dl class="property-list">
+          @if (phoneLocation.valid) {
+            <div><dt>Last fix received</dt><dd>{{ phoneLocation.latitude | number: '1.4-4' }}, {{ phoneLocation.longitude | number: '1.4-4' }} · {{ phoneLocation.ageS | relativeTime }}</dd></div>
+            <div><dt>Fix accuracy</dt><dd>{{ phoneLocation.accuracyM > 0 ? (phoneLocation.accuracyM | number: '1.0-0') + ' m' : 'Unknown' }}</dd></div>
+          } @else {
+            <div><dt>Last fix received</dt><dd>None yet</dd></div>
+          }
+          <div><dt>Auto epoch threshold</dt><dd>≈ {{ phoneLocation.autoEpochDistanceM | number: '1.0-0' }} m of movement</dd></div>
+        </dl>
+        <p class="home-wifi-note">Fixes are sent only while the app is open and connected, directly to the AntiStalker over local Wi-Fi. The device keeps the latest fix in RAM only and uses it to confirm you changed physical location, so multi-location tracking signals work without tapping the button.</p>
+      }
+    </section>
+
+    @if (trust(); as trust) {
+      <section class="setup-section">
+        <div class="section-heading"><div><p class="eyebrow">ONE-TIME PAIRING</p><h2>Trusted devices</h2></div></div>
+        <p class="section-note">Pair your own phone, watch, or earbuds once over Bluetooth. AntiStalker learns their identity key and recognizes their rotating private addresses forever — no allow-list, no alerts, even across location epochs.</p>
+
+        @if (trust.pairing) {
+          <div class="pairing-card">
+            <div class="pairing-card__head">
+              <span class="pairing-dot" aria-hidden="true"></span>
+              <div class="pairing-card__title">
+                <p class="eyebrow">PAIRING WINDOW OPEN</p>
+                <h2>{{ trust.name || 'AntiStalker' }}</h2>
+              </div>
+              @if (trust.expiresS != null) {
+                <span class="pairing-countdown">≈ {{ trust.expiresS }}s left</span>
+              }
+            </div>
+            <p class="pairing-card__instructions">
+              On the device you are pairing, open <strong>Settings > Bluetooth</strong> and tap
+              <strong>{{ trust.name || 'AntiStalker' }}</strong>. When it asks for a code, enter the one below.
+              The code appears only on your own screens — nobody else can pair.
+            </p>
+            <div class="passkey" aria-label="Pairing code">{{ trust.passkey }}</div>
+            <p class="home-wifi-note">Detection is paused while the window is open and resumes automatically. On iPhones the device can take up to 30 seconds to appear — stay on the Bluetooth screen.</p>
+            <ion-button expand="block" fill="outline" [disabled]="monitor.acting()" (click)="cancelPairing()">
+              @if (monitor.acting()) {<ion-spinner slot="start"></ion-spinner>}
+              <ion-icon slot="start" name="close-circle"></ion-icon>
+              Cancel pairing window
+            </ion-button>
+          </div>
+        } @else {
+          <ion-button expand="block" [disabled]="!monitor.connected() || monitor.acting()" (click)="startPairing()">
+            @if (monitor.acting()) {<ion-spinner slot="start"></ion-spinner>}
+            <ion-icon slot="start" name="bluetooth"></ion-icon>
+            Pair a new device
+          </ion-button>
+          <p class="home-wifi-note">Opens a five-minute window. The passkey is shown here and on the dashboard only.</p>
+        }
+
+        @if (trust.devices.length) {
+          <ul class="trust-list">
+            @for (device of trust.devices; track device.identity) {
+              <li class="trust-row">
+                <span class="device-symbol"><ion-icon name="shield-checkmark"></ion-icon></span>
+                <div class="trust-row__info">
+                  <strong>{{ device.name }}</strong>
+                  <span class="mono muted">{{ device.identity }}</span>
+                </div>
+                <span class="trust-row__meta" [class.muted]="!device.resolved">
+                  {{ device.resolved ? device.resolved + ' broadcasts resolved' : 'awaiting its next broadcast' }}
+                </span>
+                <ion-button fill="clear" size="small" aria-label="Rename trusted device" [disabled]="monitor.acting()" (click)="renameTrust(device)">
+                  <ion-icon slot="icon-only" name="create"></ion-icon>
+                </ion-button>
+                <ion-button fill="clear" size="small" color="danger" aria-label="Remove trusted device" [disabled]="monitor.acting()" (click)="removeTrust(device)">
+                  <ion-icon slot="icon-only" name="trash"></ion-icon>
+                </ion-button>
+              </li>
+            }
+          </ul>
+          <p class="home-wifi-note">Trusted devices are recorded under their real identity address and can never reach persistent or following states.</p>
+        } @else if (!trust.pairing) {
+          <div class="trust-empty">
+            <ion-icon name="bluetooth"></ion-icon>
+            <p>No trusted devices yet. Pair your own phone so its rotating addresses are recognized instead of listed as strangers.</p>
+          </div>
+        }
+      </section>
+    }
+
+    @if (home(); as home) {
+      <section class="setup-section">
+        <div class="section-heading"><div><p class="eyebrow">OPTIONAL · CONTEXT ONLY</p><h2>Home position</h2></div></div>
+        <p class="section-note">Stores your home coordinates on the device so status can say “phone is ~N m from home”. This is context only — a tracker carried in your bag is at home with you, so the home position never suppresses alerts.</p>
+
+        @if (home.valid) {
+          <dl class="property-list">
+            @if (home.latitude != null && home.longitude != null) {
+              <div><dt>Coordinates</dt><dd>{{ home.latitude | number: '1.4-4' }}, {{ home.longitude | number: '1.4-4' }}</dd></div>
+            }
+            @if (home.accuracyM) {
+              <div><dt>Accuracy</dt><dd>± {{ home.accuracyM | number: '1.0-0' }} m</dd></div>
+            }
+            <div><dt>Set from</dt><dd class="capitalize">{{ home.source || 'unknown' }}</dd></div>
+            @if (home.ageS != null) {
+              <div><dt>Updated</dt><dd>{{ home.ageS | relativeTime }}</dd></div>
+            }
+            @if (home.phoneDistanceM != null) {
+              <div><dt>Phone right now</dt><dd>~ {{ home.phoneDistanceM | number: '1.0-0' }} m from home</dd></div>
+            }
+          </dl>
+          <div class="home-actions">
+            <ion-button [disabled]="!monitor.connected() || monitor.acting()" (click)="setHomeFromPhone()">
+              @if (monitor.acting()) {<ion-spinner slot="start"></ion-spinner>}
+              <ion-icon slot="start" name="locate"></ion-icon>
+              Update from this phone
+            </ion-button>
+            <ion-button fill="outline" [disabled]="monitor.acting()" (click)="openHomeMap()">
+              <ion-icon slot="start" name="map"></ion-icon>
+              Move on map
+            </ion-button>
+            <ion-button fill="clear" color="danger" [disabled]="monitor.acting()" (click)="clearHome()">
+              <ion-icon slot="start" name="trash"></ion-icon>
+              Remove
+            </ion-button>
+          </div>
+        } @else {
+          <div class="home-actions home-actions--first">
+            <ion-button [disabled]="!monitor.connected() || monitor.acting()" (click)="setHomeFromPhone()">
+              @if (monitor.acting()) {<ion-spinner slot="start"></ion-spinner>}
+              <ion-icon slot="start" name="locate"></ion-icon>
+              Use this phone’s GPS
+            </ion-button>
+            <ion-button fill="outline" [disabled]="!monitor.connected()" (click)="openHomeMap()">
+              <ion-icon slot="start" name="map"></ion-icon>
+              Pick on the map
+            </ion-button>
+          </div>
+          <p class="home-wifi-note">Pick a point on the map or use the phone’s GPS. Saved on the device; removable anytime.</p>
+        }
+      </section>
+    }
+
+    <section class="setup-section">
+      <div class="section-heading"><div><p class="eyebrow">LIVE DATA</p><h2>Refresh preferences</h2></div></div>
+      <ion-list class="settings-list" lines="full">
+        <ion-item>
+          <ion-icon slot="start" name="sync"></ion-icon>
+          <ion-label><strong>Auto-refresh</strong><p>Keep observations current while the app is active</p></ion-label>
+          <ion-toggle slot="end" [checked]="monitor.settings().autoRefresh" (ionChange)="monitor.setAutoRefresh($any($event).detail.checked)" aria-label="Auto-refresh"></ion-toggle>
+        </ion-item>
+        <ion-item>
+          <ion-icon slot="start" name="time"></ion-icon>
+          <ion-label><strong>Refresh interval</strong><p>How often to request the device status</p></ion-label>
+          <ion-select slot="end" interface="popover" [value]="monitor.settings().refreshInterval" (ionChange)="monitor.setRefreshInterval(+$any($event).detail.value)" aria-label="Refresh interval">
+            <ion-select-option [value]="3">3 seconds</ion-select-option>
+            <ion-select-option [value]="5">5 seconds</ion-select-option>
+            <ion-select-option [value]="10">10 seconds</ion-select-option>
+          </ion-select>
+        </ion-item>
+      </ion-list>
+    </section>
+
+    @if (monitor.status()) {
+      <section class="setup-section">
+        <div class="section-heading"><div><p class="eyebrow">DEVICE</p><h2>System information</h2></div></div>
+        <dl class="property-list system-list">
+          @for (row of systemRows(); track row.label) {
+            <div><dt>{{ row.label }}</dt><dd>{{ row.value }}</dd></div>
+          }
+        </dl>
+      </section>
+    }
+
+    <section class="privacy-card">
+      <ion-icon name="lock-closed"></ion-icon>
+      <div><h2>Local by design</h2><p>No cloud account, analytics, or remote access. Observation data stays on the AntiStalker and in this app’s current session. Your phone saves only the device address (plus its last known home IP/mDNS name) and refresh preferences; home Wi-Fi credentials, trusted-device keys, and the home position are saved only on the ESP32. Phone GPS sharing is opt-in: while the app is open, fixes go straight to the device, which keeps the latest one in RAM only.</p></div>
+    </section>
+
+    <ion-accordion-group class="help-accordion">
+      <ion-accordion value="alerts">
+        <ion-item slot="header"><ion-icon slot="start" name="help-circle"></ion-icon><ion-label>Understanding risk signals</ion-label></ion-item>
+        <div slot="content" class="accordion-content">
+          <p><b>NEARBY</b> means a BLE advertiser was seen. It is not suspicious by itself.</p>
+          <p><b>PERSISTENT</b> means a known tracking tag met time and advertisement thresholds.</p>
+          <p><b>FOLLOWING</b> means a known tag appeared repeatedly at two user-confirmed locations.</p>
+          <p><b>CO-PRESENT</b> is the equivalent multi-location signal for an ordinary BLE MAC address.</p>
+        </div>
+      </ion-accordion>
+      <ion-accordion value="limits">
+        <ion-item slot="header"><ion-icon slot="start" name="information-circle"></ion-icon><ion-label>Important limitations</ion-label></ion-item>
+        <div slot="content" class="accordion-content">
+          <p>BLE results are heuristic and unauthenticated. They cannot identify an owner or prove intent.</p>
+          <p>RSSI is not distance — distance estimates are rough and often off by a factor of two. Non-advertising, Bluetooth Classic, proprietary, powered-off, cellular, and GPS-only trackers may be invisible.</p>
+          <p>A TRUSTED badge proves a device shared its key during your one-time pairing — it never proves who carries it.</p>
+          <p>If you feel at risk, move to a safe place and contact appropriate local support or emergency services. Do not confront someone based on BLE output.</p>
+        </div>
+      </ion-accordion>
+    </ion-accordion-group>
+
+    <p class="app-version">AntiStalker for iOS & Android · Version 1.0.0</p>
+  </main>
+</ion-content>

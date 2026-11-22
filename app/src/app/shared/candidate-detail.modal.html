@@ -1,0 +1,85 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>Observation details</ion-title>
+    <ion-buttons slot="end">
+      <ion-button aria-label="Close details" (click)="dismiss()"><ion-icon name="close"></ion-icon></ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  @if (candidate(); as item) {
+    <div class="detail-hero">
+      <span class="device-symbol device-symbol--large" [class.device-symbol--tracker]="kind === 'tracker'">
+        <ion-icon [name]="kind === 'tracker' ? 'radio' : 'bluetooth'"></ion-icon>
+      </span>
+      <p class="eyebrow">{{ kind === 'tracker' ? 'TRACKING TAG' : 'BLE OBSERVATION' }}</p>
+      <h1>{{ item.trustedName || item.type }}</h1>
+      <p class="mono muted">ID {{ item.id }}</p>
+      @if (item.trusted) {
+        <span class="trusted-chip"><ion-icon name="shield-checkmark"></ion-icon> TRUSTED</span>
+      }
+      <span class="state-badge state-badge--{{ stateClass }}">{{ state }}</span>
+    </div>
+
+    <div class="detail-signal-card">
+      <div>
+        <span class="muted">Filtered signal</span>
+        <strong>{{ item.rssi }} <small>dBm</small></strong>
+      </div>
+      <div class="signal-bars" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      @if (item.distanceM != null) {
+        <div class="detail-distance">
+          <span class="muted">Estimated distance</span>
+          <strong>≈ {{ item.distanceM | number: '1.0-0' }} m <small>· {{ item.distanceBand }}</small></strong>
+        </div>
+      }
+      <p>RSSI is not a reliable distance measurement{{ item.distanceM != null ? ' — walls, pockets, and antenna direction commonly halve or double this estimate' : '' }}. Move slowly and inspect your surroundings safely.</p>
+    </div>
+
+    <section class="detail-section">
+      <h2>Observation</h2>
+      <dl class="property-list">
+        <div><dt>MAC address</dt><dd class="mono">{{ item.mac }}</dd></div>
+        <div><dt>Address type</dt><dd>{{ item.addressType }}</dd></div>
+        <div><dt>Peak signal</dt><dd>{{ item.peak }} dBm</dd></div>
+        <div><dt>Last seen</dt><dd>{{ item.lastSeen | relativeTime }}</dd></div>
+        <div><dt>Advertisements</dt><dd>{{ item.sightings }}</dd></div>
+        <div><dt>Distinct minutes</dt><dd>{{ item.minutes }}</dd></div>
+        <div><dt>Confirmed places</dt><dd>{{ item.locations }}</dd></div>
+        @if (kind === 'tracker') {
+          <div><dt>Owner proximity</dt><dd class="capitalize">{{ item.owner }}</dd></div>
+        }
+        @if (item.network !== undefined) {
+          <div><dt>DULT network</dt><dd class="mono">0x{{ networkHex(item.network) }}</dd></div>
+        }
+      </dl>
+    </section>
+
+    <div class="safety-note">
+      <ion-icon name="information-circle"></ion-icon>
+      <p><strong>Risk signals, not accusations.</strong> This observation alone does not identify a person or prove stalking.</p>
+    </div>
+
+    @if (item.trusted) {
+      <div class="trusted-banner">
+        <ion-icon name="shield-checkmark"></ion-icon>
+        <p><strong>Trusted device.</strong> You paired it once over Bluetooth, so its rotating private addresses are recognized under its real identity. It never raises risk signals and stays allowed even across location epochs. Manage it in Setup &amp; settings.</p>
+      </div>
+    } @else {
+      <ion-button expand="block" size="large" [color]="item.allowed ? 'danger' : 'primary'" [disabled]="monitor.acting()" (click)="toggleAllowed()">
+        @if (monitor.acting()) {<ion-spinner slot="start"></ion-spinner>}
+        <ion-icon slot="start" [name]="item.allowed ? 'eye' : 'eye-off'"></ion-icon>
+        {{ item.allowed ? 'Re-enable alerts' : 'Allow this device' }}
+      </ion-button>
+      <p class="button-help">Allow your own devices to suppress their alerts. Allow-list entries are stored on the device in RAM and are lost when it reboots.</p>
+    }
+  } @else {
+    <div class="empty-state">
+      <ion-icon name="radio"></ion-icon>
+      <h2>Observation no longer available</h2>
+      <p>It may have expired from the device history or the device may be disconnected.</p>
+      <ion-button (click)="dismiss()">Close</ion-button>
+    </div>
+  }
+</ion-content>

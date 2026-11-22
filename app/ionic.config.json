@@ -1,0 +1,7 @@
+{
+  "name": "AntiStalker",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}

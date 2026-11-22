@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AntiStalker</string>
+    <string name="title_activity_main">AntiStalker</string>
+    <string name="package_name">com.antistalker.app</string>
+    <string name="custom_url_scheme">com.antistalker.app</string>
+</resources>

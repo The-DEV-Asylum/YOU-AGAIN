@@ -1,0 +1,88 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar>
+    <ion-title>Observations</ion-title>
+    <ion-buttons slot="end">
+      <span class="header-status"><i class="connection-dot" [class.connection-dot--online]="monitor.connected()"></i>{{ monitor.connected() ? 'Live' : 'Offline' }}</span>
+      <ion-button aria-label="Refresh observations" [disabled]="monitor.refreshing()" (click)="refresh()">
+        <ion-icon name="refresh" [class.spinning]="monitor.refreshing()"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="refresh($any($event))">
+    <ion-refresher-content pulling-text="Pull to refresh" refreshing-spinner="crescent"></ion-refresher-content>
+  </ion-refresher>
+
+  <main class="page devices-page">
+    <section class="page-heading page-heading--simple">
+      <div><p class="eyebrow">RADIO OBSERVATIONS</p><h1>What’s nearby</h1><p>Review candidates without assuming identity or intent.</p></div>
+    </section>
+
+    @if (monitor.lastError() && !monitor.status()) {
+      <button type="button" class="connection-warning" routerLink="/tabs/setup">
+        <ion-icon name="warning"></ion-icon>
+        <span><strong>Device not reachable</strong><small>Connect to its Wi-Fi hotspot to view observations.</small></span>
+        <ion-icon name="chevron-forward"></ion-icon>
+      </button>
+    }
+
+    @if (monitor.status()) {
+      <ion-segment class="observation-segment" [value]="kind()" (ionChange)="setKind($any($event).detail.value)">
+        <ion-segment-button value="tracker" layout="icon-top">
+          <ion-icon name="radio"></ion-icon>
+          <ion-label>Tracking tags <span>{{ monitor.status()?.trackers.length }}</span></ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="device" layout="icon-top">
+          <ion-icon name="bluetooth"></ion-icon>
+          <ion-label>Nearby BLE <span>{{ monitor.status()?.devices.length }}</span></ion-label>
+        </ion-segment-button>
+      </ion-segment>
+
+      <div class="observation-explainer">
+        <ion-icon [name]="kind() === 'tracker' ? 'information-circle' : 'people'"></ion-icon>
+        <p>{{ kind() === 'tracker' ? 'Known tracker protocols with persistence and movement risk signals.' : 'Phones, wearables, audio and other BLE advertisers. FOLLOWING appears as CO-PRESENT here.' }}</p>
+      </div>
+
+      <ion-searchbar class="observation-search" [value]="query()" (ionInput)="query.set($any($event).detail.value || '')" [placeholder]="kind() === 'tracker' ? 'Search ID, tag type, MAC or state' : 'Search ID, device type, MAC or state'" show-clear-button="focus"></ion-searchbar>
+
+      <div class="filter-row" aria-label="Observation filters">
+        <button type="button" class="filter-chip" [class.filter-chip--active]="filter() === 'all'" (click)="filter.set('all')">All <span>{{ source().length }}</span></button>
+        <button type="button" class="filter-chip" [class.filter-chip--active]="filter() === 'attention'" (click)="filter.set('attention')">Needs review <span>{{ attentionCount() }}</span></button>
+        <button type="button" class="filter-chip" [class.filter-chip--active]="filter() === 'allowed'" (click)="filter.set('allowed')">Allowed</button>
+      </div>
+
+      @if (candidates().length) {
+        <div class="results-heading"><span>{{ candidates().length }} {{ candidates().length === 1 ? 'observation' : 'observations' }}{{ candidates().length !== source().length ? ' of ' + source().length : '' }}</span><span>{{ monitor.connected() ? 'Live updates' : 'Last device snapshot' }}</span></div>
+        <div class="candidate-list">
+          @for (candidate of candidates(); track candidate.id) {
+            <app-candidate-card [candidate]="candidate" [kind]="kind()" (selected)="openCandidate(candidate)"></app-candidate-card>
+          }
+        </div>
+      } @else {
+        <div class="empty-state">
+          <ion-icon [name]="query() || filter() !== 'all' ? 'list' : 'radio'"></ion-icon>
+          <h2>{{ query() || filter() !== 'all' ? 'No matching observations' : 'Nothing observed yet' }}</h2>
+          <p>{{ query() || filter() !== 'all' ? 'Try a different search or filter.' : 'Keep the AntiStalker powered on. Observations will appear here as BLE advertisements arrive.' }}</p>
+          @if (query() || filter() !== 'all') {
+            <ion-button fill="outline" (click)="query.set(''); filter.set('all')">Clear filters</ion-button>
+          }
+        </div>
+      }
+    } @else {
+      <div class="empty-state empty-state--large">
+        <ion-icon name="wifi"></ion-icon>
+        <h2>Connect to see observations</h2>
+        <p>Join the AntiStalker-XXXX Wi-Fi network, then check the connection.</p>
+        <ion-button [disabled]="monitor.refreshing()" (click)="refresh()"><ion-icon slot="start" name="sync"></ion-icon>Check connection</ion-button>
+        <ion-button fill="clear" routerLink="/tabs/setup">Connection help</ion-button>
+      </div>
+    }
+
+    <div class="safety-note">
+      <ion-icon name="information-circle"></ion-icon>
+      <p>{{ kind() === 'tracker' ? 'Simultaneous MAC and payload rotation can split one physical tracker into multiple observations. Candidate counts are not counts of people.' : 'Private address rotation can hide a phone. Shared addresses and spoofing can mislead. Always allow your own electronics.' }}</p>
+    </div>
+  </main>
+</ion-content>
